@@ -64,6 +64,35 @@ assert {input} == ??
 [ANSWER]
 """
 
+def make_codeqwen_output_prompt(s):
+    code, input = s
+    return f"""You are given a Python function and an assertion containing an input to the function. Complete the assertion with a literal (no unsimplified expressions, no function calls) containing the output when executing the provided code on the given input, even if the function is incorrect or incomplete. Do NOT output any extra information. Provide the full assertion with the correct output in [ANSWER] and [/ANSWER] tags, following the examples.
+
+```python
+def repeatNumber(number : int) -> int:
+    return number
+```
+assert repeatNumber(number = 17) == ??
+[ANSWER]
+assert repeatNumber(number = 17) == 17
+[/ANSWER]
+
+```python
+def addCharacterA(string : str) -> str:
+    return string + "a"
+```
+assert addCharacterA(string = "x9j") == ??
+[ANSWER]
+assert addCharacterA(string = "x9j") == "x9ja"
+[/ANSWER]
+
+```python
+{code}
+```
+assert {input} == ??
+[ANSWER]
+"""
+
 
 def format_prompt_execution(question, LanguageModelStyle):
     return format_prompt_execution_base(question, LanguageModelStyle, False)
@@ -84,6 +113,29 @@ def format_prompt_execution_base(
     else:
         prompt = make_direct_output_prompt((code, input))
 
+    if LanguageModelStyle == LMStyle.CodeQwenInstruct:
+        prompt = make_codeqwen_output_prompt((code, input))
+        chat_messages = [
+            {
+                "role": "system",
+                "content": system_message,
+            },
+        ]
+        chat_messages += [
+            {"role": "user", "content": prompt},
+        ]
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            "Qwen/Qwen3-Coder-30B-A3B-Instruct", padding_side="left",
+        )
+        return tokenizer.apply_chat_template(
+            chat_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            truncation=False,
+            padding=False,
+        )
     if LanguageModelStyle == LMStyle.OpenAIChat:
         chat_messages = [
             {

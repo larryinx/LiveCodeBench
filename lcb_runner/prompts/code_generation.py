@@ -13,6 +13,8 @@ from lcb_runner.benchmarks.code_generation import CodeGenerationProblem
 class PromptConstants:
     SYSTEM_MESSAGE_GENERIC = f"You are an expert Python programmer. You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests."
 
+    SYSTEM_MESSAGE_CODEQWEN_INST = f"You are a helpful assistant."
+
     SYSTEM_MESSAGE_GEMINI = f"You are an expert Python programmer. You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests. Do NOT use system calls like `exit` in the generated program. Ensure that the first code block contains the solution."
 
     SYSTEM_MESSAGE_GEMINITHINK = f"You are an expert Python programmer. You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests."
@@ -125,8 +127,19 @@ def get_qwen_question_template_answer(question: CodeGenerationProblem):
     )
     return prompt
 
-
 def get_codeqwen_question_template_answer(question: CodeGenerationProblem):
+    prompt = "You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests. You will NOT return anything except for the program.\n\n"
+    prompt += f"Question: {question.question_content}\n\n"
+    if question.starter_code:
+        prompt += f"{PromptConstants.FORMATTING_MESSAGE_WITH_STARTER_CODE}\n"
+        prompt += f"```python\n{question.starter_code}\n```\n\n"
+    else:
+        prompt += f"{PromptConstants.FORMATTING_WITHOUT_STARTER_CODE}\n"
+        prompt += f"```python\n# YOUR CODE HERE\n```\n\n"
+    return prompt
+
+
+def get_codeqwen_question_template_answer_prev(question: CodeGenerationProblem):
     prompt = "You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests. You will NOT return anything except for the program.\n\n"
     prompt += f"Question: {question.question_content}\n\n"
     if question.starter_code:
@@ -274,6 +287,32 @@ def format_prompt_generation(
             truncation=False,
             padding=False,
         )
+    
+    if LanguageModelStyle == LMStyle.CodeQwenInstruct:
+        chat_messages = [
+            {
+                "role": "system",
+                "content": PromptConstants.SYSTEM_MESSAGE_CODEQWEN_INST,
+            },
+        ]
+        chat_messages += [
+            {
+                "role": "user",
+                "content": get_codeqwen_question_template_answer(question),
+            },
+        ]
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            "Qwen/Qwen3-Coder-30B-A3B-Instruct", padding_side="left",
+        )
+        return tokenizer.apply_chat_template(
+            chat_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            truncation=False,
+            padding=False,
+        )
 
     if LanguageModelStyle == LMStyle.Claude:
         prompt = f"{HUMAN_PROMPT}\n"
@@ -320,10 +359,10 @@ def format_prompt_generation(
         prompt += f"{get_deepseekcode_question_template_answer(question)}"
         return prompt
 
-    if LanguageModelStyle == LMStyle.CodeQwenInstruct:
-        prompt = f"{PromptConstants.SYSTEM_MESSAGE_CODEQWEN}\n\n"
-        prompt += f"{get_codeqwen_question_template_answer(question)}"
-        return prompt
+    # if LanguageModelStyle == LMStyle.CodeQwenInstruct:
+    #     prompt = f"{PromptConstants.SYSTEM_MESSAGE_CODEQWEN}\n\n"
+    #     prompt += f"{get_codeqwen_question_template_answer(question)}"
+    #     return prompt
 
     if LanguageModelStyle == LMStyle.QwQ:
         prompt = f"{PromptConstants.SYSTEM_MESSAGE_QWEN_QWQ}\n\n"
@@ -380,5 +419,47 @@ def test():
                 f.write(json.dumps(prompt2))
 
 
+def test_codeqwen_instruct():
+    title = "number-of-senior-citizens"
+    question_content = """
+    You are given a 0-indexed array of strings details.
+    """
+
+    question_id = "2727"
+    contest_id = "biweekly-contest-104"
+    contest_date = "2023-05-13T00:00:00"
+
+
+
+    generation_problem = CodeGenerationProblem(
+        title,
+        question_content,
+        "leetcode",
+        question_id,
+        contest_id,
+        contest_date,
+        "",
+        "easy",
+        "[]",
+        "[]",
+        "{}",
+    )
+    print("=" * 80)
+    print("CodeQwenInstruct")
+    print("=" * 80)
+    prompt = format_prompt_generation(generation_problem, LMStyle.CodeQwenInstruct)
+    print(prompt)
+
+    print("=" * 80)
+    print("CodeQwenInstruct (prev)")
+    print("=" * 80)
+    pre_prompt = f"{PromptConstants.SYSTEM_MESSAGE_CODEQWEN}\n\n"
+    pre_prompt += f"{get_codeqwen_question_template_answer_prev(generation_problem)}"
+    print(pre_prompt)
+
+
+
+
 if __name__ == "__main__":
-    test()
+    # test()
+    test_codeqwen_instruct()

@@ -91,6 +91,15 @@ def get_deepseekcode_question_template_answer(question: str, code, result, metad
     prompt += f"### Answer: (use the provided format with backticks)\n\n"
     return prompt
 
+def get_codeqwen_question_template_answer(question: str, code, result, metadata):
+    prompt = f"### Question:\n{question}\n\n"
+    prompt += f"### Answer:\n```python\n{code}\n```\n\n"
+    prompt += get_check_prompt(question, result, metadata) + "\n"
+    prompt += f"### Format: {PromptConstants.FORMATTING_WITHOUT_STARTER_CODE}\n"
+    prompt += "```python\n# YOUR CODE HERE\n```\n\n"
+    prompt += f"### Answer: (use the provided format with backticks)\n\n"
+    return prompt
+
 
 def get_magicoder_question_template_answer(question: str, code, result, metadata):
     prompt = f"You will be given a question (problem specification) and will generate a correct Python program that matches the specification and passes all tests. You will NOT return anything except for the program.\n\n"
@@ -210,6 +219,28 @@ def format_prompt_self_repair(
 
         tokenizer = AutoTokenizer.from_pretrained(
             "meta-llama/Meta-Llama-3-8B-Instruct", padding_side="left", use_fast=False
+        )
+        return tokenizer.apply_chat_template(
+            chat_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            truncation=False,
+            padding=False,
+        )
+    elif LanguageModelStyle == LMStyle.CodeQwenInstruct:
+        chat_messages = [
+            {"role": "system", "content": PromptConstants.SYSTEM_MESSAGE_GENERIC},
+        ]
+        chat_messages += [
+            {
+                "role": "user",
+                "content": get_codeqwen_question_template_answer(question, code, result, metadata),
+            },
+        ]
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            "Qwen/Qwen3-Coder-30B-A3B-Instruct", padding_side="left"
         )
         return tokenizer.apply_chat_template(
             chat_messages,
@@ -346,7 +377,6 @@ def test():
         with open(f"/tmp/leetcode_{lm_style}.txt", "w") as fp:
             write_str_or_json(leetcode_prompt)
     return
-
 
 if __name__ == "__main__":
     test()

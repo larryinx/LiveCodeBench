@@ -26,15 +26,10 @@ def get_output_path(model_repr:str, args) -> str:
     n = args.n
     temperature = args.temperature
     cot_suffix = "_cot" if args.cot_code_execution else ""
-    path = f"output/{model_repr}/{scenario}_{n}_{temperature}{cot_suffix}.json"
+    # TODO: change other output paths align with this
+    if args.output_dir is not None:
+        path = f"{args.output_dir}/{scenario}_{n}_{temperature}{cot_suffix}.json"
+    else:
+        path = f"output/{model_repr}/{scenario}_{n}_{temperature}{cot_suffix}.json"
     ensure_dir(path)
-    return path
-
-
-def get_eval_all_output_path(model_repr:str, args) -> str:
-    scenario: Scenario = args.scenario
-    n = args.n
-    temperature = args.temperature
-    cot_suffix = "_cot" if args.cot_code_execution else ""
-    path = f"output/{model_repr}/{scenario}_{n}_{temperature}{cot_suffix}_eval_all.json"
     return path

@@ -57,6 +57,9 @@ def get_check_prompt(question: str, result, metadata):
             message = f"The above code is incorrect and got a runtime error.\nInput: {metadata['inputs']}\nExpected: {metadata['expected']}\n{metadata['error']}"
         except:
             message = f"The above code is incorrect and got the following compilation error.\n{metadata['error_message']}"
+    elif metadata["error_code"] == -5:
+        # index error
+        message = f"The above code is incorrect and got the following index error.\n{metadata['error']}"
     else:
         raise NotImplementedError(
             f"metadata['error_code'] = {metadata['error_code']} not implemented || {metadata=}"
